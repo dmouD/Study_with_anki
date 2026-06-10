@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 
 #include "deepseekclient.h"
+#include "reviewwidget.h"
 #include "taskdialog.h"
 
 #include <QAbstractAnimation>
@@ -22,6 +23,7 @@
 #include <QPushButton>
 #include <QSizePolicy>
 #include <QSplitter>
+#include <QStackedWidget>
 #include <QStatusBar>
 #include <QTableWidget>
 #include <QTableWidgetItem>
@@ -35,6 +37,9 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
       m_deepSeekClient(new DeepSeekClient(this)),
+      m_stackedWidget(nullptr),
+      m_plannerWidget(nullptr),
+      m_reviewWidget(nullptr),
       m_calendar(nullptr),
       m_taskTable(nullptr),
       m_addButton(nullptr),
@@ -42,6 +47,7 @@ MainWindow::MainWindow(QWidget *parent)
       m_deleteButton(nullptr),
       m_toggleButton(nullptr),
       m_showAllButton(nullptr),
+      m_reviewButton(nullptr),
       m_detailTitleLabel(nullptr),
       m_detailMetaLabel(nullptr),
       m_detailProgressBar(nullptr),
@@ -79,10 +85,11 @@ void MainWindow::setupUi()
      *
      * QSplitter 可以让用户拖动左右区域宽度，比固定布局更舒服。
      */
-    auto *centralWidget = new QWidget(this);
-    centralWidget->setObjectName("mainBackground");
+    m_stackedWidget = new QStackedWidget(this);
+    m_plannerWidget = new QWidget(this);
+    m_plannerWidget->setObjectName("mainBackground");
 
-    auto *mainLayout = new QVBoxLayout(centralWidget);
+    auto *mainLayout = new QVBoxLayout(m_plannerWidget);
     mainLayout->setContentsMargins(18, 18, 18, 14);
     mainLayout->setSpacing(14);
 
@@ -227,19 +234,22 @@ void MainWindow::setupUi()
     m_deleteButton = new QPushButton("删除任务", this);
     m_toggleButton = new QPushButton("标记完成/未完成", this);
     m_showAllButton = new QPushButton("显示全部", this);
+    m_reviewButton = new QPushButton("Anki复习", this);
 
     m_addButton->setProperty("buttonRole", "primary");
     m_editButton->setProperty("buttonRole", "normal");
     m_deleteButton->setProperty("buttonRole", "danger");
     m_toggleButton->setProperty("buttonRole", "accent");
     m_showAllButton->setProperty("buttonRole", "ghost");
+    m_reviewButton->setProperty("buttonRole", "primary");
 
     const QList<QPushButton *> buttons = {
         m_addButton,
         m_editButton,
         m_deleteButton,
         m_toggleButton,
-        m_showAllButton
+        m_showAllButton,
+        m_reviewButton
     };
 
     for (QPushButton *button : buttons) {
@@ -258,12 +268,17 @@ void MainWindow::setupUi()
     buttonLayout->addWidget(m_deleteButton);
     buttonLayout->addWidget(m_toggleButton);
     buttonLayout->addStretch();
+    buttonLayout->addWidget(m_reviewButton);
     buttonLayout->addWidget(m_showAllButton);
 
     mainLayout->addWidget(splitter);
     mainLayout->addWidget(buttonBar);
 
-    setCentralWidget(centralWidget);
+    m_reviewWidget = new ReviewWidget(this);
+    m_stackedWidget->addWidget(m_plannerWidget);
+    m_stackedWidget->addWidget(m_reviewWidget);
+
+    setCentralWidget(m_stackedWidget);
     setupStyleSheet();
     statusBar()->showMessage("准备加载今日任务");
 }
@@ -528,6 +543,8 @@ void MainWindow::connectSignals()
     connect(m_deleteButton, &QPushButton::clicked, this, &MainWindow::deleteTask);
     connect(m_toggleButton, &QPushButton::clicked, this, &MainWindow::toggleTaskDone);
     connect(m_showAllButton, &QPushButton::clicked, this, &MainWindow::showAllTasks);
+    connect(m_reviewButton, &QPushButton::clicked, this, &MainWindow::openReviewWidget);
+    connect(m_reviewWidget, &ReviewWidget::backRequested, this, &MainWindow::showPlannerWidget);
     connect(m_calendar, &QCalendarWidget::selectionChanged, this, &MainWindow::filterTasksBySelectedDate);
     connect(m_taskTable, &QTableWidget::itemSelectionChanged, this, &MainWindow::showSelectedTaskDetails);
     connect(m_aiAnalyzeButton, &QPushButton::clicked, this, &MainWindow::analyzePlanWithAi);
@@ -1040,4 +1057,16 @@ void MainWindow::showAllTasks()
 {
     // “显示全部”按钮用于退出日期筛选模式。
     loadAllTasks();
+}
+
+void MainWindow::openReviewWidget()
+{
+    m_stackedWidget->setCurrentWidget(m_reviewWidget);
+    statusBar()->showMessage("Anki 复习");
+}
+
+void MainWindow::showPlannerWidget()
+{
+    m_stackedWidget->setCurrentWidget(m_plannerWidget);
+    statusBar()->showMessage(m_showingAllTasks ? "显示全部任务" : "当前筛选日期: " + currentSelectedDateText());
 }

@@ -21,6 +21,8 @@ add_executable(StudyPlanner
     task.cpp
     taskdialog.h
     taskdialog.cpp
+    reviewwidget.h
+    reviewwidget.cpp
     databasemanager.h
     databasemanager.cpp
     deepseekclient.h

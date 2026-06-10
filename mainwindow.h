@@ -12,10 +12,12 @@ class QLabel;
 class QLineEdit;
 class QProgressBar;
 class QPushButton;
+class QStackedWidget;
 class QTableWidgetItem;
 class QTableWidget;
 class QTextEdit;
 class QWidget;
+class ReviewWidget;
 
 /*
  * MainWindow 是整个程序的主窗口。
@@ -43,6 +45,8 @@ private slots:
     void toggleTaskDone();
     void filterTasksBySelectedDate();
     void showAllTasks();
+    void openReviewWidget();
+    void showPlannerWidget();
     void analyzePlanWithAi();
     void showAiResult(const QString &result);
     void showAiError(const QString &errorMessage);
@@ -77,6 +81,9 @@ private:
     DeepSeekClient *m_deepSeekClient;
 
     // 主界面控件指针由 Qt 父子对象机制自动释放。
+    QStackedWidget *m_stackedWidget;
+    QWidget *m_plannerWidget;
+    ReviewWidget *m_reviewWidget;
     QCalendarWidget *m_calendar;
     QTableWidget *m_taskTable;
     QPushButton *m_addButton;
@@ -84,6 +91,7 @@ private:
     QPushButton *m_deleteButton;
     QPushButton *m_toggleButton;
     QPushButton *m_showAllButton;
+    QPushButton *m_reviewButton;
     QLabel *m_detailTitleLabel;
     QLabel *m_detailMetaLabel;
     QProgressBar *m_detailProgressBar;
