@@ -274,7 +274,7 @@ void MainWindow::setupUi()
     mainLayout->addWidget(splitter);
     mainLayout->addWidget(buttonBar);
 
-    m_reviewWidget = new ReviewWidget(this);
+    m_reviewWidget = new ReviewWidget(&m_databaseManager, this);
     m_stackedWidget->addWidget(m_plannerWidget);
     m_stackedWidget->addWidget(m_reviewWidget);
 
@@ -1061,6 +1061,7 @@ void MainWindow::showAllTasks()
 
 void MainWindow::openReviewWidget()
 {
+    m_reviewWidget->reloadCards();
     m_stackedWidget->setCurrentWidget(m_reviewWidget);
     statusBar()->showMessage("Anki 复习");
 }

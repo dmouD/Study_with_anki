@@ -1,11 +1,14 @@
 #ifndef DATABASEMANAGER_H
 #define DATABASEMANAGER_H
 
+#include "flashcard.h"
 #include "task.h"
 
 #include <QList>
 #include <QSqlDatabase>
 #include <QSqlQuery>
+#include <QStringList>
+#include <QVector>
 
 /*
  * DatabaseManager 是项目里的数据库访问层。
@@ -23,7 +26,7 @@ public:
     DatabaseManager();
     ~DatabaseManager();
 
-    // 打开 planner.db，并确保 tasks 表存在。
+    // 打开 planner.db，并确保 tasks 表和 flashcards 表存在。
     bool initialize();
 
     // 基本增删改查接口。
@@ -39,9 +42,39 @@ public:
     // 将任务在 0% 未完成和 100% 已完成之间切换。
     bool toggleTaskDone(int id);
 
+    // Anki 风格复习卡片接口。
+    bool addFlashCard(const QString &front,
+                      const QString &back,
+                      const QString &tag,
+                      const QString &deck = "默认牌组",
+                      const QString &cardColor = "#ffffff");
+    QVector<FlashCard> getDueFlashCards(const QString &deck = QString());
+    QStringList getFlashCardDecks();
+    bool addFlashCardDeck(const QString &deck);
+    bool updateFlashCardAfterReview(int cardId, int rating);
+    bool deleteFlashCard(int cardId);
+    int importFlashCardsFromTextFile(const QString &filePath,
+                                     const QString &deck = "默认牌组",
+                                     const QString &cardColor = "#ffffff");
+
 private:
     // 初始化数据库时调用；如果表已存在，SQL 不会重复创建。
     bool createTasksTable();
+
+    // 初始化复习卡片表；不会影响已有任务表。
+    bool createFlashcardsTable();
+
+    // 初始化牌组表；允许没有卡片的牌组也能保存。
+    bool createFlashCardDecksTable();
+
+    // 兼容旧版本数据库：如果 flashcards 表还没有导入来源字段，就自动添加。
+    bool ensureFlashCardSourceColumns();
+
+    // 兼容旧版本数据库：如果 flashcards 表还没有 deck 字段，就自动添加。
+    bool ensureFlashCardDeckColumn();
+
+    // 兼容旧版本数据库：如果 flashcards 表还没有 card_color 字段，就自动添加。
+    bool ensureFlashCardColorColumn();
 
     // 兼容旧版本数据库：如果 tasks 表还没有 progress 字段，就自动添加。
     bool ensureProgressColumn();
@@ -61,6 +94,9 @@ private:
 
     // 把 QSqlQuery 当前行转换成 Task 对象，减少重复取字段代码。
     Task taskFromQuery(const QSqlQuery &query) const;
+
+    // 把 QSqlQuery 当前行转换成 FlashCard 对象。
+    FlashCard flashCardFromQuery(const QSqlQuery &query) const;
 
     // Qt 的数据库连接对象。这里使用一个固定连接名，避免重复 addDatabase。
     QSqlDatabase m_database;

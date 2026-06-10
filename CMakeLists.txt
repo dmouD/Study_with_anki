@@ -21,6 +21,9 @@ add_executable(StudyPlanner
     task.cpp
     taskdialog.h
     taskdialog.cpp
+    flashcard.h
+    carddialog.h
+    carddialog.cpp
     reviewwidget.h
     reviewwidget.cpp
     databasemanager.h

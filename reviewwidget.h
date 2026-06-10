@@ -1,10 +1,15 @@
 #ifndef REVIEWWIDGET_H
 #define REVIEWWIDGET_H
 
-#include <QList>
-#include <QString>
-#include <QWidget>
+#include "flashcard.h"
 
+#include <QStringList>
+#include <QWidget>
+#include <QVector>
+
+class DatabaseManager;
+class QComboBox;
+class QFrame;
 class QLabel;
 class QPushButton;
 class QTextEdit;
@@ -12,49 +17,58 @@ class QTextEdit;
 /*
  * ReviewWidget 是一个轻量版 Anki 复习子界面。
  *
- * 第一阶段只做纯 UI：
- * - 不连接数据库。
- * - 不修改任务管理逻辑。
- * - 使用几张假数据演示“正面 -> 显示答案 -> 反馈 -> 下一张”的流程。
+ * 它负责复习流程和添加卡片入口，但不直接写 SQL。
+ * 所有卡片数据都通过 DatabaseManager 读取和保存。
  */
 class ReviewWidget : public QWidget
 {
     Q_OBJECT
 
 public:
-    explicit ReviewWidget(QWidget *parent = nullptr);
+    explicit ReviewWidget(DatabaseManager *databaseManager, QWidget *parent = nullptr);
+
+    // 每次打开复习页时重新读取今日到期卡片，避免显示旧数据。
+    void reloadCards();
 
 signals:
     // 用户点击“返回计划”时通知 MainWindow 切回原来的计划软件页面。
     void backRequested();
 
 private:
-    struct ReviewCard
-    {
-        QString front;
-        QString back;
-        QString tag;
-    };
-
     void setupUi();
     void setupStyleSheet();
     void connectSignals();
-    void loadFakeCards();
+    void reloadDecks();
+    QString selectedDeckFilter() const;
+    QString selectedDeckForNewCards() const;
+    void applyCardColor(const QString &cardColor);
+    void createDeck();
+    void addCard();
+    void importCardsFromFile();
     void showCurrentCard();
     void showEmptyState();
     void showAnswer();
     void submitRating(int rating);
     void setReviewButtonsVisible(bool visible);
 
-    QList<ReviewCard> m_cards;
+    DatabaseManager *m_databaseManager;
+    QVector<FlashCard> m_cards;
+    QStringList m_decks;
     int m_currentIndex;
 
     QLabel *m_titleLabel;
     QLabel *m_statusLabel;
     QLabel *m_tagLabel;
+    QLabel *m_deckLabel;
+    QLabel *m_backSideTitleLabel;
+    QComboBox *m_deckCombo;
+    QFrame *m_cardFrame;
     QTextEdit *m_frontEdit;
     QTextEdit *m_backEdit;
     QPushButton *m_showAnswerButton;
+    QPushButton *m_newDeckButton;
+    QPushButton *m_addCardButton;
+    QPushButton *m_importCardButton;
     QPushButton *m_backToPlannerButton;
     QPushButton *m_forgetButton;
     QPushButton *m_blurryButton;
