@@ -45,7 +45,7 @@ public:
     DatabaseManager();
     ~DatabaseManager();
 
-    // 打开 planner.db，并确保 tasks 表和 flashcards 表存在。
+    // 打开 dstudy.db，并确保 tasks 表和 flashcards 表存在。
     bool initialize();
 
     // 基本增删改查接口。

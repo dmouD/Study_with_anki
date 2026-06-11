@@ -1094,7 +1094,7 @@ void MainWindow::openAdminDebugDialog()
         loadTodayTasks();
         m_reviewWidget->reloadCards();
         m_stackedWidget->setCurrentWidget(m_plannerWidget);
-        statusBar()->showMessage("数据库已清空");
+        statusBar()->showMessage("全部学习数据已清空");
     });
     dialog.exec();
 }

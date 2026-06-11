@@ -82,6 +82,21 @@ QString normalizedCardColor(const QString &cardColor)
     const QString trimmedColor = cardColor.trimmed();
     return trimmedColor.isEmpty() ? QString("#ffffff") : trimmedColor;
 }
+
+QString writableDStudyDataPath()
+{
+    QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (!dataPath.isEmpty()) {
+        return dataPath;
+    }
+
+    const QString genericDataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    if (!genericDataPath.isEmpty()) {
+        return genericDataPath + QDir::separator() + "DStudy";
+    }
+
+    return QDir::homePath() + QDir::separator() + ".dstudy";
+}
 }
 
 DatabaseManager::DatabaseManager()
@@ -110,32 +125,34 @@ DatabaseManager::~DatabaseManager()
 bool DatabaseManager::initialize()
 {
     /*
-     * planner.db 放在用户数据目录，而不是可执行文件目录。
+     * dstudy.db 放在用户数据目录，而不是可执行文件目录。
      * 这样安装到只读目录时也能正常写入，并且更符合跨平台应用习惯。
      *
      * 如果旧版本曾经把 planner.db 放在 build/可执行文件目录，
      * 或者放在 StudyPlanner 旧应用名的数据目录里，
      * 这里会在新位置没有数据库时复制旧文件，尽量保留已有数据。
      */
-    QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    if (dataPath.isEmpty()) {
-        dataPath = QCoreApplication::applicationDirPath();
-    }
+    const QString dataPath = writableDStudyDataPath();
 
     if (!QDir().mkpath(dataPath)) {
         qDebug() << "创建数据目录失败:" << dataPath;
         return false;
     }
 
-    const QString databasePath = dataPath + QDir::separator() + "planner.db";
-    const QString appDirDatabasePath = QCoreApplication::applicationDirPath()
-                                       + QDir::separator()
-                                       + "planner.db";
+    const QString databasePath = dataPath + QDir::separator() + "dstudy.db";
+    const QString appDirPlannerDatabasePath = QCoreApplication::applicationDirPath()
+                                              + QDir::separator()
+                                              + "planner.db";
+    const QString appDirDStudyDatabasePath = QCoreApplication::applicationDirPath()
+                                             + QDir::separator()
+                                             + "dstudy.db";
     const QString genericDataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
 
     QStringList legacyDatabasePaths;
-    legacyDatabasePaths.append(appDirDatabasePath);
+    legacyDatabasePaths.append(appDirDStudyDatabasePath);
+    legacyDatabasePaths.append(appDirPlannerDatabasePath);
     if (!genericDataPath.isEmpty()) {
+        legacyDatabasePaths.append(genericDataPath + QDir::separator() + "DStudy" + QDir::separator() + "planner.db");
         legacyDatabasePaths.append(genericDataPath + QDir::separator() + "StudyPlanner" + QDir::separator() + "planner.db");
         legacyDatabasePaths.append(genericDataPath + QDir::separator() + "StudyPlanner" + QDir::separator() + "StudyPlanner" + QDir::separator() + "planner.db");
     }
@@ -967,13 +984,14 @@ bool DatabaseManager::toggleTaskDone(int id)
 bool DatabaseManager::clearAllDataForDebug()
 {
     /*
-     * 管理员调试用清库：
-     * - 只删除业务数据，不删除表结构。
+     * 管理员调试用清空学习数据：
+     * - 删除业务数据，不删除数据库表结构和程序安装文件。
      * - 重置 AUTOINCREMENT，让新数据 ID 从 1 重新开始。
+     * - 删除用户数据目录中的 Anki 导入媒体和配置目录。
      * - 重建默认分组和默认牌组，避免 Anki 页面进入空的基础状态。
      */
     if (!m_database.transaction()) {
-        qDebug() << "开始调试清库事务失败:" << m_database.lastError().text();
+        qDebug() << "开始清空学习数据事务失败:" << m_database.lastError().text();
         return false;
     }
 
@@ -988,7 +1006,7 @@ bool DatabaseManager::clearAllDataForDebug()
     for (const QString &sql : deleteSqlList) {
         QSqlQuery query(m_database);
         if (!query.exec(sql)) {
-            qDebug() << "调试清库失败:" << sql << query.lastError().text();
+            qDebug() << "清空学习数据失败:" << sql << query.lastError().text();
             m_database.rollback();
             return false;
         }
@@ -1004,7 +1022,7 @@ bool DatabaseManager::clearAllDataForDebug()
     groupQuery.bindValue(":name", "默认分组");
     groupQuery.bindValue(":created_at", now);
     if (!groupQuery.exec()) {
-        qDebug() << "调试清库后重建默认分组失败:" << groupQuery.lastError().text();
+        qDebug() << "清空学习数据后重建默认分组失败:" << groupQuery.lastError().text();
         m_database.rollback();
         return false;
     }
@@ -1018,15 +1036,29 @@ bool DatabaseManager::clearAllDataForDebug()
     deckQuery.bindValue(":group_name", "默认分组");
     deckQuery.bindValue(":created_at", now);
     if (!deckQuery.exec()) {
-        qDebug() << "调试清库后重建默认牌组失败:" << deckQuery.lastError().text();
+        qDebug() << "清空学习数据后重建默认牌组失败:" << deckQuery.lastError().text();
         m_database.rollback();
         return false;
     }
 
     if (!m_database.commit()) {
-        qDebug() << "提交调试清库事务失败:" << m_database.lastError().text();
+        qDebug() << "提交清空学习数据事务失败:" << m_database.lastError().text();
         m_database.rollback();
         return false;
+    }
+
+    const QString dataPath = writableDStudyDataPath();
+    const QStringList removableUserDataDirs = {
+        dataPath + QDir::separator() + "anki_media",
+        dataPath + QDir::separator() + "config"
+    };
+
+    for (const QString &dirPath : removableUserDataDirs) {
+        QDir dir(dirPath);
+        if (dir.exists() && !dir.removeRecursively()) {
+            qDebug() << "删除用户学习数据目录失败:" << dirPath;
+            return false;
+        }
     }
 
     return true;

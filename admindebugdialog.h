@@ -10,7 +10,7 @@ class QPushButton;
  * AdminDebugDialog 是管理员调试界面。
  *
  * 这里集中放高风险调试功能，避免它们混在普通任务/复习操作里。
- * 当前只提供“清除数据库”功能。
+ * 当前提供“清空全部学习数据”功能。
  */
 class AdminDebugDialog : public QDialog
 {
@@ -20,7 +20,7 @@ public:
     explicit AdminDebugDialog(DatabaseManager *databaseManager, QWidget *parent = nullptr);
 
 signals:
-    // 清库成功后通知 MainWindow 刷新任务表和复习页面。
+    // 清空成功后通知 MainWindow 刷新任务表和复习页面。
     void databaseCleared();
 
 private:

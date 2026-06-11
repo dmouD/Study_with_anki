@@ -13,7 +13,7 @@
 AdminDebugDialog::AdminDebugDialog(DatabaseManager *databaseManager, QWidget *parent)
     : QDialog(parent),
       m_databaseManager(databaseManager),
-      m_clearDatabaseButton(new QPushButton("清除数据库", this)),
+      m_clearDatabaseButton(new QPushButton("清空全部学习数据", this)),
       m_closeButton(new QPushButton("关闭", this))
 {
     setupUi();
@@ -33,7 +33,7 @@ void AdminDebugDialog::setupUi()
     subtitleLabel->setWordWrap(true);
 
     auto *warningLabel = new QLabel(
-        "清除数据库会删除所有任务、Anki 卡片、分组和牌组，并重置自增 ID。这个操作不可撤销。",
+        "清空全部学习数据会删除所有任务、Anki 卡片、分组、牌组、导入媒体和配置数据，并重置自增 ID。这个操作不可撤销。",
         this);
     warningLabel->setObjectName("warningLabel");
     warningLabel->setWordWrap(true);
@@ -129,14 +129,14 @@ void AdminDebugDialog::setupStyleSheet()
 void AdminDebugDialog::clearDatabase()
 {
     if (m_databaseManager == nullptr) {
-        QMessageBox::warning(this, "提示", "数据库还没有初始化，不能执行清库。");
+        QMessageBox::warning(this, "提示", "数据库还没有初始化，不能清空学习数据。");
         return;
     }
 
     const QMessageBox::StandardButton firstConfirm =
         QMessageBox::warning(this,
                              "危险操作",
-                             "确定要清除整个数据库吗？\n\n所有任务和 Anki 卡片都会被删除，此操作不可撤销。",
+                             "确定要清空全部学习数据吗？\n\n所有任务、Anki 卡片、导入媒体和配置数据都会被删除，此操作不可撤销。",
                              QMessageBox::Yes | QMessageBox::No,
                              QMessageBox::No);
     if (firstConfirm != QMessageBox::Yes) {
@@ -146,7 +146,7 @@ void AdminDebugDialog::clearDatabase()
     bool ok = false;
     const QString confirmation = QInputDialog::getText(this,
                                                        "再次确认",
-                                                       "请输入 CLEAR 确认清除数据库:",
+                                                       "请输入 CLEAR 确认清空全部学习数据:",
                                                        QLineEdit::Normal,
                                                        QString(),
                                                        &ok);
@@ -155,15 +155,15 @@ void AdminDebugDialog::clearDatabase()
     }
 
     if (confirmation != "CLEAR") {
-        QMessageBox::information(this, "已取消", "输入内容不匹配，数据库没有被清除。");
+        QMessageBox::information(this, "已取消", "输入内容不匹配，学习数据没有被清空。");
         return;
     }
 
     if (!m_databaseManager->clearAllDataForDebug()) {
-        QMessageBox::warning(this, "清除失败", "清除数据库失败，请查看调试输出。");
+        QMessageBox::warning(this, "清空失败", "清空学习数据失败，请查看调试输出。");
         return;
     }
 
     emit databaseCleared();
-    QMessageBox::information(this, "清除完成", "数据库已清空，并已重建默认分组和默认牌组。");
+    QMessageBox::information(this, "清空完成", "全部学习数据已清空，并已重建默认分组和默认牌组。");
 }

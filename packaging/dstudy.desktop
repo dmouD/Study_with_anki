@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=DStudy
+Comment=Local study planner and Anki-style review tool
+Exec=DStudy
+Icon=dstudy
+Terminal=false
+Categories=Education;Utility;

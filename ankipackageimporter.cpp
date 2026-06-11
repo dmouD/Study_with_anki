@@ -2,7 +2,6 @@
 
 #include "databasemanager.h"
 
-#include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
@@ -375,17 +374,28 @@ QString safeMediaFileName(const QString &fileName, const QString &prefix)
     return prefix + "_" + baseName;
 }
 
+QString writableDStudyDataPath()
+{
+    QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (!dataPath.isEmpty()) {
+        return dataPath;
+    }
+
+    const QString genericDataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    if (!genericDataPath.isEmpty()) {
+        return genericDataPath + QDir::separator() + "DStudy";
+    }
+
+    return QDir::homePath() + QDir::separator() + ".dstudy";
+}
+
 QHash<QString, QString> copyMediaFiles(const QString &extractPath,
                                        const QJsonObject &mediaObject,
                                        const QString &packageId)
 {
     QHash<QString, QString> mediaUrls;
 
-    QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    if (dataPath.isEmpty()) {
-        dataPath = QCoreApplication::applicationDirPath();
-    }
-
+    const QString dataPath = writableDStudyDataPath();
     QDir mediaDir(dataPath + QDir::separator() + "anki_media");
     if (!mediaDir.exists()) {
         mediaDir.mkpath(".");
