@@ -10,6 +10,8 @@
 class DatabaseManager;
 class DeckOverview;
 class QFrame;
+class QGraphicsDropShadowEffect;
+class QGraphicsOpacityEffect;
 class QHBoxLayout;
 class QLabel;
 class QLineEdit;
@@ -75,6 +77,8 @@ private:
     void showAnswer();
     void submitRating(int rating);
     void setReviewButtonsVisible(bool visible);
+    void playCardEnterAnimation();
+    void playAnswerRevealAnimation();
 
     DatabaseManager *m_databaseManager;
     QVector<FlashCard> m_cards;
@@ -112,6 +116,10 @@ private:
     QWidget *m_reviewAreaWidget;
     QLabel *m_backSideTitleLabel;
     QFrame *m_cardFrame;
+    QGraphicsDropShadowEffect *m_cardShadowEffect;
+    QGraphicsOpacityEffect *m_frontOpacityEffect;
+    QGraphicsOpacityEffect *m_backTitleOpacityEffect;
+    QGraphicsOpacityEffect *m_backOpacityEffect;
     QTextEdit *m_frontEdit;
     QTextEdit *m_backEdit;
     QPushButton *m_backToLibraryButton;

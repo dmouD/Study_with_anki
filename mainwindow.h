@@ -47,6 +47,7 @@ private slots:
     void showAllTasks();
     void openReviewWidget();
     void showPlannerWidget();
+    void openAdminDebugDialog();
     void analyzePlanWithAi();
     void showAiResult(const QString &result);
     void showAiError(const QString &errorMessage);
@@ -92,6 +93,7 @@ private:
     QPushButton *m_toggleButton;
     QPushButton *m_showAllButton;
     QPushButton *m_reviewButton;
+    QPushButton *m_adminDebugButton;
     QLabel *m_detailTitleLabel;
     QLabel *m_detailMetaLabel;
     QProgressBar *m_detailProgressBar;

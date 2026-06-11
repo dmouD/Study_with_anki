@@ -964,6 +964,74 @@ bool DatabaseManager::toggleTaskDone(int id)
     return true;
 }
 
+bool DatabaseManager::clearAllDataForDebug()
+{
+    /*
+     * 管理员调试用清库：
+     * - 只删除业务数据，不删除表结构。
+     * - 重置 AUTOINCREMENT，让新数据 ID 从 1 重新开始。
+     * - 重建默认分组和默认牌组，避免 Anki 页面进入空的基础状态。
+     */
+    if (!m_database.transaction()) {
+        qDebug() << "开始调试清库事务失败:" << m_database.lastError().text();
+        return false;
+    }
+
+    const QStringList deleteSqlList = {
+        "DELETE FROM tasks",
+        "DELETE FROM flashcards",
+        "DELETE FROM flashcard_decks",
+        "DELETE FROM flashcard_groups",
+        "DELETE FROM sqlite_sequence WHERE name IN ('tasks', 'flashcards', 'flashcard_decks', 'flashcard_groups')"
+    };
+
+    for (const QString &sql : deleteSqlList) {
+        QSqlQuery query(m_database);
+        if (!query.exec(sql)) {
+            qDebug() << "调试清库失败:" << sql << query.lastError().text();
+            m_database.rollback();
+            return false;
+        }
+    }
+
+    const QString now = QDateTime::currentDateTime().toString(Qt::ISODate);
+
+    QSqlQuery groupQuery(m_database);
+    groupQuery.prepare(R"(
+        INSERT INTO flashcard_groups (name, created_at)
+        VALUES (:name, :created_at)
+    )");
+    groupQuery.bindValue(":name", "默认分组");
+    groupQuery.bindValue(":created_at", now);
+    if (!groupQuery.exec()) {
+        qDebug() << "调试清库后重建默认分组失败:" << groupQuery.lastError().text();
+        m_database.rollback();
+        return false;
+    }
+
+    QSqlQuery deckQuery(m_database);
+    deckQuery.prepare(R"(
+        INSERT INTO flashcard_decks (name, group_name, created_at)
+        VALUES (:name, :group_name, :created_at)
+    )");
+    deckQuery.bindValue(":name", "默认牌组");
+    deckQuery.bindValue(":group_name", "默认分组");
+    deckQuery.bindValue(":created_at", now);
+    if (!deckQuery.exec()) {
+        qDebug() << "调试清库后重建默认牌组失败:" << deckQuery.lastError().text();
+        m_database.rollback();
+        return false;
+    }
+
+    if (!m_database.commit()) {
+        qDebug() << "提交调试清库事务失败:" << m_database.lastError().text();
+        m_database.rollback();
+        return false;
+    }
+
+    return true;
+}
+
 bool DatabaseManager::addFlashCard(const QString &front,
                                    const QString &back,
                                    const QString &tag,

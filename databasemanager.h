@@ -60,6 +60,9 @@ public:
     // 将任务在 0% 未完成和 100% 已完成之间切换。
     bool toggleTaskDone(int id);
 
+    // 调试接口：清空所有业务数据并重置自增 ID，仅供管理员调试界面调用。
+    bool clearAllDataForDebug();
+
     // Anki 风格复习卡片接口。
     bool addFlashCard(const QString &front,
                       const QString &back,

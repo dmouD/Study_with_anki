@@ -22,6 +22,8 @@ add_executable(DStudy
     taskdialog.h
     taskdialog.cpp
     flashcard.h
+    admindebugdialog.h
+    admindebugdialog.cpp
     carddialog.h
     carddialog.cpp
     reviewwidget.h

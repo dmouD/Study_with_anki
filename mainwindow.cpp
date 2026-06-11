@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 
+#include "admindebugdialog.h"
 #include "deepseekclient.h"
 #include "reviewwidget.h"
 #include "taskdialog.h"
@@ -48,6 +49,7 @@ MainWindow::MainWindow(QWidget *parent)
       m_toggleButton(nullptr),
       m_showAllButton(nullptr),
       m_reviewButton(nullptr),
+      m_adminDebugButton(nullptr),
       m_detailTitleLabel(nullptr),
       m_detailMetaLabel(nullptr),
       m_detailProgressBar(nullptr),
@@ -242,6 +244,7 @@ void MainWindow::setupUi()
     m_toggleButton = new QPushButton("标记完成/未完成", this);
     m_showAllButton = new QPushButton("显示全部", this);
     m_reviewButton = new QPushButton("Anki复习", this);
+    m_adminDebugButton = new QPushButton("管理员调试", this);
 
     m_addButton->setProperty("buttonRole", "primary");
     m_editButton->setProperty("buttonRole", "normal");
@@ -249,6 +252,7 @@ void MainWindow::setupUi()
     m_toggleButton->setProperty("buttonRole", "accent");
     m_showAllButton->setProperty("buttonRole", "ghost");
     m_reviewButton->setProperty("buttonRole", "primary");
+    m_adminDebugButton->setProperty("buttonRole", "danger");
 
     const QList<QPushButton *> buttons = {
         m_addButton,
@@ -256,7 +260,8 @@ void MainWindow::setupUi()
         m_deleteButton,
         m_toggleButton,
         m_showAllButton,
-        m_reviewButton
+        m_reviewButton,
+        m_adminDebugButton
     };
 
     for (QPushButton *button : buttons) {
@@ -275,6 +280,7 @@ void MainWindow::setupUi()
     buttonLayout->addWidget(m_deleteButton);
     buttonLayout->addWidget(m_toggleButton);
     buttonLayout->addStretch();
+    buttonLayout->addWidget(m_adminDebugButton);
     buttonLayout->addWidget(m_reviewButton);
     buttonLayout->addWidget(m_showAllButton);
 
@@ -551,6 +557,7 @@ void MainWindow::connectSignals()
     connect(m_toggleButton, &QPushButton::clicked, this, &MainWindow::toggleTaskDone);
     connect(m_showAllButton, &QPushButton::clicked, this, &MainWindow::showAllTasks);
     connect(m_reviewButton, &QPushButton::clicked, this, &MainWindow::openReviewWidget);
+    connect(m_adminDebugButton, &QPushButton::clicked, this, &MainWindow::openAdminDebugDialog);
     connect(m_reviewWidget, &ReviewWidget::backRequested, this, &MainWindow::showPlannerWidget);
     connect(m_calendar, &QCalendarWidget::selectionChanged, this, &MainWindow::filterTasksBySelectedDate);
     connect(m_taskTable, &QTableWidget::itemSelectionChanged, this, &MainWindow::showSelectedTaskDetails);
@@ -1077,4 +1084,17 @@ void MainWindow::showPlannerWidget()
 {
     m_stackedWidget->setCurrentWidget(m_plannerWidget);
     statusBar()->showMessage(m_showingAllTasks ? "显示全部任务" : "当前筛选日期: " + currentSelectedDateText());
+}
+
+void MainWindow::openAdminDebugDialog()
+{
+    AdminDebugDialog dialog(&m_databaseManager, this);
+    connect(&dialog, &AdminDebugDialog::databaseCleared, this, [this]() {
+        m_calendar->setSelectedDate(QDate::currentDate());
+        loadTodayTasks();
+        m_reviewWidget->reloadCards();
+        m_stackedWidget->setCurrentWidget(m_plannerWidget);
+        statusBar()->showMessage("数据库已清空");
+    });
+    dialog.exec();
 }

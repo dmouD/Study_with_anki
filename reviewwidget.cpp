@@ -15,11 +15,14 @@
 #include <QMap>
 #include <QMessageBox>
 #include <QProgressBar>
+#include <QPropertyAnimation>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSizePolicy>
 #include <QTextEdit>
 #include <QVBoxLayout>
+#include <QEasingCurve>
+#include <QGraphicsOpacityEffect>
 
 ReviewWidget::ReviewWidget(DatabaseManager *databaseManager, QWidget *parent)
     : QWidget(parent),
@@ -51,6 +54,10 @@ ReviewWidget::ReviewWidget(DatabaseManager *databaseManager, QWidget *parent)
       m_reviewAreaWidget(new QWidget(this)),
       m_backSideTitleLabel(new QLabel("背面", this)),
       m_cardFrame(new QFrame(this)),
+      m_cardShadowEffect(new QGraphicsDropShadowEffect(this)),
+      m_frontOpacityEffect(new QGraphicsOpacityEffect(this)),
+      m_backTitleOpacityEffect(new QGraphicsOpacityEffect(this)),
+      m_backOpacityEffect(new QGraphicsOpacityEffect(this)),
       m_frontEdit(new QTextEdit(this)),
       m_backEdit(new QTextEdit(this)),
       m_backToLibraryButton(new QPushButton("返回牌库", this)),
@@ -182,25 +189,30 @@ void ReviewWidget::setupUi()
     m_cardFrame->setObjectName("flashCardFrame");
     m_cardFrame->setMinimumHeight(360);
 
-    auto *shadowEffect = new QGraphicsDropShadowEffect(m_cardFrame);
-    shadowEffect->setBlurRadius(28);
-    shadowEffect->setOffset(0, 10);
-    shadowEffect->setColor(QColor(38, 50, 68, 45));
-    m_cardFrame->setGraphicsEffect(shadowEffect);
+    m_cardShadowEffect->setBlurRadius(28);
+    m_cardShadowEffect->setOffset(0, 10);
+    m_cardShadowEffect->setColor(QColor(38, 50, 68, 45));
+    m_cardFrame->setGraphicsEffect(m_cardShadowEffect);
 
     m_frontEdit->setObjectName("cardText");
     m_frontEdit->setReadOnly(true);
     m_frontEdit->setMinimumHeight(150);
     m_frontEdit->setFrameShape(QFrame::NoFrame);
+    m_frontOpacityEffect->setOpacity(1.0);
+    m_frontEdit->setGraphicsEffect(m_frontOpacityEffect);
 
     m_backEdit->setObjectName("answerText");
     m_backEdit->setReadOnly(true);
     m_backEdit->setMinimumHeight(150);
     m_backEdit->setFrameShape(QFrame::NoFrame);
+    m_backOpacityEffect->setOpacity(1.0);
+    m_backEdit->setGraphicsEffect(m_backOpacityEffect);
 
     auto *frontTitleLabel = new QLabel("正面", this);
     frontTitleLabel->setObjectName("cardSideTitle");
     m_backSideTitleLabel->setObjectName("cardSideTitle");
+    m_backTitleOpacityEffect->setOpacity(1.0);
+    m_backSideTitleLabel->setGraphicsEffect(m_backTitleOpacityEffect);
     m_showAnswerButton->setObjectName("showAnswerButton");
 
     auto *cardLayout = new QVBoxLayout(m_cardFrame);
@@ -1149,6 +1161,7 @@ void ReviewWidget::showCurrentCard()
     m_showAnswerButton->setVisible(true);
     m_showAnswerButton->setEnabled(true);
     setReviewButtonsVisible(false);
+    playCardEnterAnimation();
 }
 
 void ReviewWidget::showEmptyState()
@@ -1165,6 +1178,7 @@ void ReviewWidget::showEmptyState()
     m_backEdit->setVisible(false);
     m_showAnswerButton->setVisible(false);
     setReviewButtonsVisible(false);
+    playCardEnterAnimation();
 }
 
 void ReviewWidget::showAnswer()
@@ -1177,6 +1191,7 @@ void ReviewWidget::showAnswer()
     m_backEdit->setVisible(true);
     m_showAnswerButton->setVisible(false);
     setReviewButtonsVisible(true);
+    playAnswerRevealAnimation();
 }
 
 void ReviewWidget::submitRating(int rating)
@@ -1207,4 +1222,58 @@ void ReviewWidget::setReviewButtonsVisible(bool visible)
     m_blurryButton->setVisible(visible);
     m_rememberButton->setVisible(visible);
     m_easyButton->setVisible(visible);
+}
+
+void ReviewWidget::playCardEnterAnimation()
+{
+    if (!m_cardFrame->isVisible()) {
+        return;
+    }
+
+    const QPoint endPosition = m_cardFrame->pos();
+    const QPoint startPosition = endPosition + QPoint(0, 18);
+    m_cardFrame->move(startPosition);
+
+    auto *moveAnimation = new QPropertyAnimation(m_cardFrame, "pos", this);
+    moveAnimation->setDuration(220);
+    moveAnimation->setStartValue(startPosition);
+    moveAnimation->setEndValue(endPosition);
+    moveAnimation->setEasingCurve(QEasingCurve::OutCubic);
+    moveAnimation->start(QAbstractAnimation::DeleteWhenStopped);
+
+    m_frontOpacityEffect->setOpacity(0.0);
+    auto *frontOpacityAnimation = new QPropertyAnimation(m_frontOpacityEffect, "opacity", this);
+    frontOpacityAnimation->setDuration(200);
+    frontOpacityAnimation->setStartValue(0.0);
+    frontOpacityAnimation->setEndValue(1.0);
+    frontOpacityAnimation->setEasingCurve(QEasingCurve::OutCubic);
+    frontOpacityAnimation->start(QAbstractAnimation::DeleteWhenStopped);
+
+    m_cardShadowEffect->setBlurRadius(14);
+    auto *shadowAnimation = new QPropertyAnimation(m_cardShadowEffect, "blurRadius", this);
+    shadowAnimation->setDuration(240);
+    shadowAnimation->setStartValue(14);
+    shadowAnimation->setEndValue(28);
+    shadowAnimation->setEasingCurve(QEasingCurve::OutCubic);
+    shadowAnimation->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void ReviewWidget::playAnswerRevealAnimation()
+{
+    m_backTitleOpacityEffect->setOpacity(0.0);
+    m_backOpacityEffect->setOpacity(0.0);
+
+    auto *titleAnimation = new QPropertyAnimation(m_backTitleOpacityEffect, "opacity", this);
+    titleAnimation->setDuration(160);
+    titleAnimation->setStartValue(0.0);
+    titleAnimation->setEndValue(1.0);
+    titleAnimation->setEasingCurve(QEasingCurve::OutCubic);
+    titleAnimation->start(QAbstractAnimation::DeleteWhenStopped);
+
+    auto *answerAnimation = new QPropertyAnimation(m_backOpacityEffect, "opacity", this);
+    answerAnimation->setDuration(220);
+    answerAnimation->setStartValue(0.0);
+    answerAnimation->setEndValue(1.0);
+    answerAnimation->setEasingCurve(QEasingCurve::OutCubic);
+    answerAnimation->start(QAbstractAnimation::DeleteWhenStopped);
 }
