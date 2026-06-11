@@ -11,6 +11,7 @@ set(CMAKE_AUTOMOC ON)
 
 # Widgets 提供传统桌面控件，Sql 提供 QSqlDatabase/QSqlQuery，Network 用于访问 DeepSeek API。
 find_package(Qt6 REQUIRED COMPONENTS Widgets Sql Network)
+find_package(ZLIB REQUIRED)
 
 # 项目源码列表。没有使用 .ui 文件，所有界面都在 C++ 代码里创建。
 add_executable(DStudy
@@ -22,6 +23,8 @@ add_executable(DStudy
     taskdialog.h
     taskdialog.cpp
     flashcard.h
+    ankipackageimporter.h
+    ankipackageimporter.cpp
     admindebugdialog.h
     admindebugdialog.cpp
     carddialog.h
@@ -39,4 +42,5 @@ target_link_libraries(DStudy PRIVATE
     Qt6::Widgets
     Qt6::Sql
     Qt6::Network
+    ZLIB::ZLIB
 )

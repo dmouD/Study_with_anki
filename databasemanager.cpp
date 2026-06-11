@@ -1082,10 +1082,21 @@ int DatabaseManager::importFlashCardsFromTextFile(const QString &filePath,
                                                   const QString &deck,
                                                   const QString &cardColor)
 {
+    const FlashCardImportResult result = importFlashCardsFromTextFileWithResult(filePath, group, deck, cardColor);
+    return result.success() ? result.imported : -1;
+}
+
+FlashCardImportResult DatabaseManager::importFlashCardsFromTextFileWithResult(const QString &filePath,
+                                                                              const QString &group,
+                                                                              const QString &deck,
+                                                                              const QString &cardColor)
+{
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qDebug() << "打开 Anki 文本文件失败:" << filePath << file.errorString();
-        return -1;
+        FlashCardImportResult result;
+        result.errorMessage = "打开 Anki 文本文件失败: " + file.errorString();
+        return result;
     }
 
     QTextStream stream(&file);
@@ -1093,7 +1104,9 @@ int DatabaseManager::importFlashCardsFromTextFile(const QString &filePath,
 
     if (!m_database.transaction()) {
         qDebug() << "开始 Anki 文本导入事务失败:" << m_database.lastError().text();
-        return -1;
+        FlashCardImportResult result;
+        result.errorMessage = "开始 Anki 文本导入事务失败: " + m_database.lastError().text();
+        return result;
     }
 
     QSqlQuery duplicateQuery(m_database);
@@ -1117,7 +1130,7 @@ int DatabaseManager::importFlashCardsFromTextFile(const QString &filePath,
     const QString color = normalizedCardColor(cardColor);
     addFlashCardGroup(groupName);
     addFlashCardDeck(deckName, groupName);
-    int importedCount = 0;
+    FlashCardImportResult result;
     int lineNumber = 0;
 
     /*
@@ -1135,6 +1148,7 @@ int DatabaseManager::importFlashCardsFromTextFile(const QString &filePath,
         const QStringList columns = line.split('\t');
         if (columns.size() < 2) {
             qDebug() << "跳过 Anki 文本导入行，字段不足，行号:" << lineNumber;
+            ++result.failed;
             continue;
         }
 
@@ -1144,6 +1158,7 @@ int DatabaseManager::importFlashCardsFromTextFile(const QString &filePath,
 
         if (front.isEmpty() || back.isEmpty()) {
             qDebug() << "跳过 Anki 文本导入行，正面或背面为空，行号:" << lineNumber;
+            ++result.failed;
             continue;
         }
 
@@ -1153,9 +1168,11 @@ int DatabaseManager::importFlashCardsFromTextFile(const QString &filePath,
         duplicateQuery.bindValue(":source_id", sourceId);
         if (!duplicateQuery.exec()) {
             qDebug() << "检查 Anki 文本重复卡片失败，行号:" << lineNumber << duplicateQuery.lastError().text();
+            ++result.failed;
             continue;
         }
         if (duplicateQuery.next()) {
+            ++result.skipped;
             continue;
         }
 
@@ -1175,19 +1192,115 @@ int DatabaseManager::importFlashCardsFromTextFile(const QString &filePath,
 
         if (!insertQuery.exec()) {
             qDebug() << "导入 Anki 文本卡片失败，行号:" << lineNumber << insertQuery.lastError().text();
+            ++result.failed;
             continue;
         }
 
-        ++importedCount;
+        ++result.imported;
     }
 
     if (!m_database.commit()) {
         qDebug() << "提交 Anki 文本导入事务失败:" << m_database.lastError().text();
         m_database.rollback();
-        return -1;
+        result.errorMessage = "提交 Anki 文本导入事务失败: " + m_database.lastError().text();
+        return result;
     }
 
-    return importedCount;
+    return result;
+}
+
+FlashCardImportResult DatabaseManager::importFlashCardsFromAnkiPackage(const QVector<ImportedAnkiCard> &cards,
+                                                                       const QString &group,
+                                                                       const QString &deck,
+                                                                       const QString &cardColor)
+{
+    FlashCardImportResult result;
+
+    if (cards.isEmpty()) {
+        return result;
+    }
+
+    const QString now = QDateTime::currentDateTime().toString(Qt::ISODate);
+    const QString groupName = normalizedGroupName(group);
+    const QString deckName = normalizedDeckName(deck);
+    const QString color = normalizedCardColor(cardColor);
+
+    addFlashCardGroup(groupName);
+    addFlashCardDeck(deckName, groupName);
+
+    if (!m_database.transaction()) {
+        result.errorMessage = "开始 Anki .apkg 导入事务失败: " + m_database.lastError().text();
+        return result;
+    }
+
+    QSqlQuery duplicateQuery(m_database);
+    duplicateQuery.prepare(R"(
+        SELECT id
+        FROM flashcards
+        WHERE source = :source
+          AND source_id = :source_id
+        LIMIT 1
+    )");
+
+    QSqlQuery insertQuery(m_database);
+    insertQuery.prepare(R"(
+        INSERT INTO flashcards (front, back, tag, card_group, deck, card_color, due_time, interval_days, ease_factor, review_count, created_at, source, source_id)
+        VALUES (:front, :back, :tag, :card_group, :deck, :card_color, :due_time, :interval_days, :ease_factor, :review_count, :created_at, :source, :source_id)
+    )");
+
+    for (const ImportedAnkiCard &card : cards) {
+        const QString front = card.front.trimmed();
+        const QString back = card.back.trimmed();
+        const QString sourceId = card.sourceId.trimmed();
+
+        if (front.isEmpty() || back.isEmpty() || sourceId.isEmpty()) {
+            ++result.failed;
+            continue;
+        }
+
+        duplicateQuery.bindValue(":source", "anki_apkg");
+        duplicateQuery.bindValue(":source_id", sourceId);
+        if (!duplicateQuery.exec()) {
+            qDebug() << "检查 Anki .apkg 重复卡片失败:" << duplicateQuery.lastError().text();
+            ++result.failed;
+            continue;
+        }
+
+        if (duplicateQuery.next()) {
+            ++result.skipped;
+            continue;
+        }
+
+        insertQuery.bindValue(":front", front);
+        insertQuery.bindValue(":back", back);
+        insertQuery.bindValue(":tag", card.tag.trimmed());
+        insertQuery.bindValue(":card_group", groupName);
+        insertQuery.bindValue(":deck", deckName);
+        insertQuery.bindValue(":card_color", color);
+        insertQuery.bindValue(":due_time", now);
+        insertQuery.bindValue(":interval_days", 1);
+        insertQuery.bindValue(":ease_factor", 2.5);
+        insertQuery.bindValue(":review_count", 0);
+        insertQuery.bindValue(":created_at", now);
+        insertQuery.bindValue(":source", "anki_apkg");
+        insertQuery.bindValue(":source_id", sourceId);
+
+        if (!insertQuery.exec()) {
+            qDebug() << "写入 Anki .apkg 卡片失败:" << insertQuery.lastError().text();
+            ++result.failed;
+            continue;
+        }
+
+        ++result.imported;
+    }
+
+    if (!m_database.commit()) {
+        result.errorMessage = "提交 Anki .apkg 导入事务失败: " + m_database.lastError().text();
+        m_database.rollback();
+        return result;
+    }
+
+    return result;
 }
 
 QVector<FlashCard> DatabaseManager::getDueFlashCards(const QString &deck, const QString &group)

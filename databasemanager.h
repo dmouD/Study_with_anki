@@ -1,6 +1,7 @@
 #ifndef DATABASEMANAGER_H
 #define DATABASEMANAGER_H
 
+#include "ankipackageimporter.h"
 #include "flashcard.h"
 #include "task.h"
 
@@ -88,6 +89,14 @@ public:
                                      const QString &group = "默认分组",
                                      const QString &deck = "默认牌组",
                                      const QString &cardColor = "#ffffff");
+    FlashCardImportResult importFlashCardsFromTextFileWithResult(const QString &filePath,
+                                                                 const QString &group = "默认分组",
+                                                                 const QString &deck = "默认牌组",
+                                                                 const QString &cardColor = "#ffffff");
+    FlashCardImportResult importFlashCardsFromAnkiPackage(const QVector<ImportedAnkiCard> &cards,
+                                                          const QString &group = "默认分组",
+                                                          const QString &deck = "默认牌组",
+                                                          const QString &cardColor = "#ffffff");
 
 private:
     // 初始化数据库时调用；如果表已存在，SQL 不会重复创建。

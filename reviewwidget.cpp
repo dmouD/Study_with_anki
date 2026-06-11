@@ -1,10 +1,12 @@
 #include "reviewwidget.h"
 
+#include "ankipackageimporter.h"
 #include "carddialog.h"
 #include "databasemanager.h"
 
 #include <QColor>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFrame>
 #include <QGraphicsDropShadowEffect>
 #include <QHBoxLayout>
@@ -17,12 +19,31 @@
 #include <QProgressBar>
 #include <QPropertyAnimation>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QScrollArea>
 #include <QSizePolicy>
 #include <QTextEdit>
 #include <QVBoxLayout>
 #include <QEasingCurve>
 #include <QGraphicsOpacityEffect>
+
+namespace {
+bool looksLikeHtml(const QString &text)
+{
+    static const QRegularExpression htmlExpression(
+        "<\\s*(img|br|p|div|span|table|tbody|tr|td|ul|ol|li|b|i|strong|em|a)\\b|&[a-zA-Z]+;");
+    return text.contains(htmlExpression);
+}
+
+void setTextEditContent(QTextEdit *edit, const QString &content)
+{
+    if (looksLikeHtml(content)) {
+        edit->setHtml(content);
+    } else {
+        edit->setPlainText(content);
+    }
+}
+}
 
 ReviewWidget::ReviewWidget(DatabaseManager *databaseManager, QWidget *parent)
     : QWidget(parent),
@@ -1112,28 +1133,50 @@ void ReviewWidget::importCardsFromFile()
     }
 
     const QString filePath = QFileDialog::getOpenFileName(this,
-                                                          "选择 Anki 文本文件",
+                                                          "选择 Anki 导入文件",
                                                           QString(),
-                                                          "文本文件 (*.txt *.tsv);;所有文件 (*)");
+                                                          "Anki 包或文本 (*.apkg *.txt *.tsv);;Anki 包 (*.apkg);;文本文件 (*.txt *.tsv);;所有文件 (*)");
     if (filePath.isEmpty()) {
         return;
     }
 
     const QString groupName = selectedGroupForNewCards();
     const QString deckName = selectedDeckForNewCards();
-    const int importedCount =
-        m_databaseManager->importFlashCardsFromTextFile(filePath, groupName, deckName, "#ffffff");
-    if (importedCount < 0) {
-        QMessageBox::warning(this, "导入失败", "导入 Anki 文本文件失败，请查看调试输出。");
-        return;
-    }
+    const QString suffix = QFileInfo(filePath).suffix().toLower();
+    if (suffix == "apkg") {
+        AnkiPackageImporter importer;
+        const FlashCardImportResult result =
+            importer.importPackage(filePath, m_databaseManager, groupName, deckName, "#ffffff");
+        if (!result.success()) {
+            QMessageBox::warning(this, "导入失败", result.errorMessage);
+            return;
+        }
 
-    QMessageBox::information(this,
-                             "导入完成",
-                             QString("已导入 %1 张复习卡片到“%2 / %3”。")
-                                 .arg(importedCount)
-                                 .arg(groupName)
-                                 .arg(deckName));
+        QMessageBox::information(this,
+                                 "导入完成",
+                                 QString("已导入 %1 张，跳过重复 %2 张，失败 %3 张。\n目标牌组：%4 / %5")
+                                     .arg(result.imported)
+                                     .arg(result.skipped)
+                                     .arg(result.failed)
+                                     .arg(groupName)
+                                     .arg(deckName));
+    } else {
+        const FlashCardImportResult result =
+            m_databaseManager->importFlashCardsFromTextFileWithResult(filePath, groupName, deckName, "#ffffff");
+        if (!result.success()) {
+            QMessageBox::warning(this, "导入失败", result.errorMessage);
+            return;
+        }
+
+        QMessageBox::information(this,
+                                 "导入完成",
+                                 QString("已导入 %1 张，跳过重复 %2 张，失败 %3 张。\n目标牌组：%4 / %5")
+                                     .arg(result.imported)
+                                     .arg(result.skipped)
+                                     .arg(result.failed)
+                                     .arg(groupName)
+                                     .arg(deckName));
+    }
     showLibrary();
 }
 
@@ -1154,8 +1197,8 @@ void ReviewWidget::showCurrentCard()
                                .arg(card.reviewCount));
     m_tagLabel->setText("标签：" + (card.tag.isEmpty() ? QString("未分类") : card.tag));
     applyCardColor(card.cardColor);
-    m_frontEdit->setPlainText(card.front);
-    m_backEdit->setPlainText(card.back);
+    setTextEditContent(m_frontEdit, card.front);
+    setTextEditContent(m_backEdit, card.back);
     m_backSideTitleLabel->setVisible(false);
     m_backEdit->setVisible(false);
     m_showAnswerButton->setVisible(true);
