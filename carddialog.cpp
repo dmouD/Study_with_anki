@@ -206,9 +206,14 @@ void CardDialog::refreshDeckComboForCurrentGroup(const QString &preferredDeck)
     const QString groupName = getGroup();
     QStringList decks = m_decksByGroup.value(groupName);
     if (decks.isEmpty()) {
-        decks.append("默认牌组");
+        QSignalBlocker blocker(m_deckCombo);
+        m_deckCombo->clear();
+        m_deckCombo->addItem("请先新建牌组");
+        m_deckCombo->setEnabled(false);
+        return;
     }
 
+    m_deckCombo->setEnabled(true);
     const QString previousDeck = m_deckCombo->currentText();
     QString selectedDeck = preferredDeck.trimmed().isEmpty()
                                ? normalizedDialogDeck(previousDeck)
@@ -226,6 +231,11 @@ void CardDialog::refreshDeckComboForCurrentGroup(const QString &preferredDeck)
     } else {
         m_deckCombo->setCurrentText(selectedDeck);
     }
+}
+
+bool CardDialog::currentGroupHasDecks() const
+{
+    return !m_decksByGroup.value(getGroup()).isEmpty();
 }
 
 void CardDialog::setupColorOptions()
@@ -252,6 +262,11 @@ void CardDialog::setupColorOptions()
 
 void CardDialog::accept()
 {
+    if (!currentGroupHasDecks()) {
+        QMessageBox::warning(this, "提示", "当前分组还没有牌组，请先在牌库页面新建牌组。");
+        return;
+    }
+
     if (getFront().isEmpty()) {
         QMessageBox::warning(this, "提示", "正面问题不能为空。");
         return;

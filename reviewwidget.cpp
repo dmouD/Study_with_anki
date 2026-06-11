@@ -573,10 +573,6 @@ void ReviewWidget::reloadDecks()
     if (m_databaseManager != nullptr) {
         m_decks = m_databaseManager->getFlashCardDecks(m_currentGroup);
     }
-
-    if (m_decks.isEmpty()) {
-        m_decks.append("默认牌组");
-    }
 }
 
 void ReviewWidget::reloadDeckLibrary()
@@ -900,7 +896,7 @@ QString ReviewWidget::selectedDeckForNewCards() const
         return m_decks.first();
     }
 
-    return "默认牌组";
+    return QString();
 }
 
 void ReviewWidget::applyCardColor(const QString &cardColor)
@@ -1050,6 +1046,15 @@ void ReviewWidget::addCard()
         return;
     }
 
+    reloadDecks();
+    if (m_decks.isEmpty()) {
+        QMessageBox::warning(this,
+                             "提示",
+                             QString("“%1”分组里还没有牌组，请先新建牌组，再添加卡片。")
+                                 .arg(selectedGroupForNewCards()));
+        return;
+    }
+
     CardDialog dialog(this);
     QMap<QString, QStringList> decksByGroup;
     for (const QString &group : m_groups) {
@@ -1082,6 +1087,15 @@ void ReviewWidget::importCardsFromFile()
 {
     if (m_databaseManager == nullptr) {
         QMessageBox::warning(this, "提示", "数据库还没有初始化，暂时不能导入卡片。");
+        return;
+    }
+
+    reloadDecks();
+    if (m_decks.isEmpty()) {
+        QMessageBox::warning(this,
+                             "提示",
+                             QString("“%1”分组里还没有牌组，请先新建牌组，再导入卡片。")
+                                 .arg(selectedGroupForNewCards()));
         return;
     }
 

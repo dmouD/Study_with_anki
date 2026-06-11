@@ -19,7 +19,7 @@ class QTextEdit;
 class QVBoxLayout;
 
 /*
- * ReviewWidget 是 StudyPlanner 里的 Anki 风格复习页面。
+ * ReviewWidget 是 DStudy 里的 Anki 风格复习页面。
  *
  * 它现在包含两个层次：
  * 1. 牌库首页：按“分组 -> 牌组”展示可视化牌组卡片。

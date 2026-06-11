@@ -14,8 +14,8 @@
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-    QCoreApplication::setOrganizationName("StudyPlanner");
-    QCoreApplication::setApplicationName("StudyPlanner");
+    QCoreApplication::setOrganizationName("DStudy");
+    QCoreApplication::setApplicationName("DStudy");
 
     MainWindow window;
     window.resize(1000, 650);

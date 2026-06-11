@@ -90,7 +90,7 @@ DatabaseManager::DatabaseManager()
      * Qt 允许给数据库连接起名字。这里使用固定连接名，
      * 可以避免程序中重复创建多个 SQLite 连接。
      */
-    const QString connectionName = "StudyPlannerConnection";
+    const QString connectionName = "DStudyConnection";
 
     if (QSqlDatabase::contains(connectionName)) {
         m_database = QSqlDatabase::database(connectionName);
@@ -114,6 +114,7 @@ bool DatabaseManager::initialize()
      * 这样安装到只读目录时也能正常写入，并且更符合跨平台应用习惯。
      *
      * 如果旧版本曾经把 planner.db 放在 build/可执行文件目录，
+     * 或者放在 StudyPlanner 旧应用名的数据目录里，
      * 这里会在新位置没有数据库时复制旧文件，尽量保留已有数据。
      */
     QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -127,15 +128,28 @@ bool DatabaseManager::initialize()
     }
 
     const QString databasePath = dataPath + QDir::separator() + "planner.db";
-    const QString legacyDatabasePath = QCoreApplication::applicationDirPath()
+    const QString appDirDatabasePath = QCoreApplication::applicationDirPath()
                                        + QDir::separator()
                                        + "planner.db";
+    const QString genericDataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
 
-    if (databasePath != legacyDatabasePath
-        && !QFile::exists(databasePath)
-        && QFile::exists(legacyDatabasePath)) {
-        if (!QFile::copy(legacyDatabasePath, databasePath)) {
-            qDebug() << "迁移旧数据库失败，旧路径:" << legacyDatabasePath << "新路径:" << databasePath;
+    QStringList legacyDatabasePaths;
+    legacyDatabasePaths.append(appDirDatabasePath);
+    if (!genericDataPath.isEmpty()) {
+        legacyDatabasePaths.append(genericDataPath + QDir::separator() + "StudyPlanner" + QDir::separator() + "planner.db");
+        legacyDatabasePaths.append(genericDataPath + QDir::separator() + "StudyPlanner" + QDir::separator() + "StudyPlanner" + QDir::separator() + "planner.db");
+    }
+
+    if (!QFile::exists(databasePath)) {
+        for (const QString &legacyDatabasePath : legacyDatabasePaths) {
+            if (databasePath == legacyDatabasePath || !QFile::exists(legacyDatabasePath)) {
+                continue;
+            }
+
+            if (!QFile::copy(legacyDatabasePath, databasePath)) {
+                qDebug() << "迁移旧数据库失败，旧路径:" << legacyDatabasePath << "新路径:" << databasePath;
+            }
+            break;
         }
     }
 
@@ -1261,10 +1275,6 @@ QStringList DatabaseManager::getFlashCardDecks(const QString &group)
         if (!decks.contains(deckName)) {
             decks.append(deckName);
         }
-    }
-
-    if (decks.isEmpty()) {
-        decks.append("默认牌组");
     }
 
     return decks;

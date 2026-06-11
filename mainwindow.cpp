@@ -58,7 +58,7 @@ MainWindow::MainWindow(QWidget *parent)
       m_aiResultEdit(nullptr),
       m_showingAllTasks(true)
 {
-    setWindowTitle("StudyPlanner");
+    setWindowTitle("DStudy");
 
     setupUi();
     connectSignals();

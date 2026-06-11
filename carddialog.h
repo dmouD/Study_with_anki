@@ -48,6 +48,7 @@ protected:
 private:
     void setupStyleSheet();
     void setupColorOptions();
+    bool currentGroupHasDecks() const;
     void refreshDeckComboForCurrentGroup(const QString &preferredDeck = QString());
 
     QLineEdit *m_frontEdit;
